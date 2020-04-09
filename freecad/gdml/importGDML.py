@@ -967,6 +967,9 @@ def processGDML(doc,filename,prompt):
     pathName = os.path.dirname(os.path.normpath(filename))
     FilesEntity = False
 
+
+    # ToDo - Restructure to use Python Class for GDML xml handling.
+    # rather than globals
     global setup, define, materials, solids, structure, volDict
   
   # Add files object so user can change to organise files
@@ -975,10 +978,26 @@ def processGDML(doc,filename,prompt):
     #myfiles = doc.addObject("App::DocumentObjectGroupPython","Export_Files")
     #GDMLFiles(myfiles,FilesEntity,sectionDict)
 
-    from lxml import etree
-    #root = etree.fromstring(currentString)
-    parser = etree.XMLParser(resolve_entities=True)
-    root = etree.parse(filename, parser=parser)
+
+    # Improvement supplied by Damian/Damien Lamb
+    try:
+       from lxml import etree
+       FreeCAD.Console.PrintMessage("running with lxml.etree")
+       parser = etree.XMLParser(resolve_entities=True)
+       root = etree.parse(filename, parser=parser)
+
+    except ImportError:
+       try:
+           import xml.etree.ElementTree as etree
+           FreeCAD.Console.PrintMessage("running with etree.ElementTree\n")
+           FreeCAD.Console.PrintMessage("Will not resolve imbedded files\n")
+           tree = etree.parse(filename)
+           FreeCAD.Console.PrintMessage(tree)
+           root = tree.getroot()
+
+       except ImportError:
+           print('pb xml lib not found')
+           sys.exit()
 
     setup     = root.find('setup')
     define    = root.find('define')
