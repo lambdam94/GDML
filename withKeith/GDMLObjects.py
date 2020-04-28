@@ -506,29 +506,36 @@ class GDMLPolyhedra(GDMLcommon) :
 
        if deltaphi_rad<=0.0: return
 
-       # loop on z level
-       for indiceParm in range(len(parms)-1):
-           zmin    = parms[indiceParm].z * mul
-           zmax    = parms[indiceParm+1].z * mul
-           rmin_i = 0.0
-           rmin_ip1 = 0.0
-           if hasattr(parms[indiceParm], 'rmin'):
-               rmin_i = max( parms[indiceParm].rmin * mul, 0.0)
-           if hasattr(parms[indiceParm+1], 'rmin'):
-               rmin_ip1 = max( parms[indiceParm+1].rmin * mul, 0.0)
-           rmax_i = max(parms[indiceParm].rmax * mul, 0.0)
-           rmax_ip1 = max(parms[indiceParm+1].rmax * mul, 0.0)
 
-           # loop on phi angle
-           for indiceSide in range(numsides):
-               # one small volume definition 
+       # loop on   each small sub volume definition : loop phi + loop z
+       # 1-loop phi 
+       for indiceSide in range(numsides):
+           
 
+           if indiceSide == 0:
                cosmin = math.cos(float(indiceSide)*deltaPhiSide_rad+startphi_rad)
                sinmin = math.sin(float(indiceSide)*deltaPhiSide_rad+startphi_rad)
-               cosmax = math.cos(float(indiceSide+1)*deltaPhiSide_rad+startphi_rad)
-               sinmax = math.sin(float(indiceSide+1)*deltaPhiSide_rad+startphi_rad)
+           else:
+               cosmin = cosmax
+               sinmin = sinmax
+           cosmax = math.cos(float(indiceSide+1)*deltaPhiSide_rad+startphi_rad)
+           sinmax = math.sin(float(indiceSide+1)*deltaPhiSide_rad+startphi_rad)
 
-               # def of the 8 corners
+
+           # 2- loop on z level
+           for indiceParm in range(len(parms)-1):
+               zmin    = parms[indiceParm].z * mul
+               zmax    = parms[indiceParm+1].z * mul
+               rmin_i = 0.0
+               rmin_ip1 = 0.0
+               if hasattr(parms[indiceParm], 'rmin'):
+                   rmin_i = max( parms[indiceParm].rmin * mul, 0.0)
+               if hasattr(parms[indiceParm+1], 'rmin'):
+                   rmin_ip1 = max( parms[indiceParm+1].rmin * mul, 0.0)
+               rmax_i = max(parms[indiceParm].rmax * mul, 0.0)
+               rmax_ip1 = max(parms[indiceParm+1].rmax * mul, 0.0)
+
+               # def of the 8 corners of the sub volume 
                rmin_zmin_phimin = FreeCAD.Vector(rmin_i*cosmin, rmin_i*sinmin, zmin)
                rmax_zmin_phimin = FreeCAD.Vector(rmax_i*cosmin, rmax_i*sinmin, zmin)
                rminp1_zmax_phimin = FreeCAD.Vector(rmin_ip1*cosmin, rmin_ip1*sinmin, zmax)
@@ -539,7 +546,8 @@ class GDMLPolyhedra(GDMLcommon) :
                rminp1_zmax_phimax = FreeCAD.Vector(rmin_ip1*cosmax, rmin_ip1*sinmax, zmax)
                rmaxp1_zmax_phimax = FreeCAD.Vector(rmax_ip1*cosmax, rmax_ip1*sinmax, zmax)
 
-               # face Z max
+               # face Z max of the sub volume
+               # needed only for Zmax
                if indiceParm ==(len(parms)-2):
                    faceList[indiceFaceList] = Part.Face(Part.makePolygon([rminp1_zmax_phimin,
                                                   rmaxp1_zmax_phimin,
@@ -547,7 +555,9 @@ class GDMLPolyhedra(GDMLcommon) :
                                                   rminp1_zmax_phimax,
                                                   rminp1_zmax_phimin]))
                    indiceFaceList = indiceFaceList+1
-               #face Z min
+
+               #face Z min of the sub volume
+               # needed only for Zmin
                if indiceParm ==0:
                    faceList[indiceFaceList] = (Part.Face(Part.makePolygon([rmin_zmin_phimin,
                                                   rmax_zmin_phimin,
@@ -556,7 +566,8 @@ class GDMLPolyhedra(GDMLcommon) :
                                                   rmin_zmin_phimin])))
                    indiceFaceList = indiceFaceList+1
 
-               # R out
+               # face R out  of the sub volume
+               #    always needed
                faceList[indiceFaceList] = (Part.Face(Part.makePolygon([rmax_zmin_phimin,
                                                   rmaxp1_zmax_phimin,
                                                   rmaxp1_zmax_phimax,
@@ -565,6 +576,7 @@ class GDMLPolyhedra(GDMLcommon) :
                indiceFaceList = indiceFaceList+1
 
                # R min 
+               # needed only when there is a hole in the middle
                if( rmin_i > 0.0 or rmin_ip1 > 0.0):
                    faceList[indiceFaceList] = (Part.Face(Part.makePolygon([rmin_zmin_phimin,
                                                   rminp1_zmax_phimin,
