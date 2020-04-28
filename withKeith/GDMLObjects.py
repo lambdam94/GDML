@@ -839,62 +839,91 @@ class GDMLPolycone(GDMLcommon) :
    def execute(self, fp):
        self.createGeometry(fp)
 
+  
+
    def createGeometry(self,fp) :    
        zplanes = fp.OutList
-       #cones = []
 
-       GDMLShared.trace("Number of zplanes : "+str(len(zplanes)))
+
+       #GDMLShared.trace("Number of zplanes : "+str(len(zplanes)))
        mul = GDMLShared.getMult(fp.lunit)
        angleDeltaPhiDeg = 360.0
        if (hasattr(fp,'deltaphi')) :  
            angleDeltaPhiDeg = min([getAngleDeg(fp.aunit,fp.deltaphi), angleDeltaPhiDeg])
        if(angleDeltaPhiDeg <=0.0): return
 
-       # Running height
-       fullhalfheight = (zplanes[0].z - zplanes[-1].z) * mul *(0.5)
-       rh = 0.0
-       fusioncone = []
-
        listShape = [0 for i in range((len(zplanes)-1))]
-       # loops on each cone
+
+       sinPhi = 0.0
+       cosPhi = 1.0
+       if fp.startphi != 0 :
+           angleRad = getAngleRad(fp.aunit,fp.startphi)
+           sinPhi = math.sin(angleRad)
+           cosPhi = math.cos(angleRad)
+     
+       # loops on each z level
        for i in range(len(zplanes)-1) :
            GDMLShared.trace('index : '+str(i))
+           if i ==0:
+               rmin1 = zplanes[i].rmin * mul
+               rmax1 = zplanes[i].rmax * mul
+               z1 =zplanes[i].z* mul
+           else:
+               rmin1 = rmin2
+               rmax1 = rmax2
+               z1 =z2
 
-           rmin1 = zplanes[i].rmin * mul
            rmin2 = zplanes[i+1].rmin * mul
-           rmax1 = zplanes[i].rmax * mul
            rmax2 = zplanes[i+1].rmax * mul
-           dh = max(0.0,(zplanes[i+1].z - zplanes[i].z) * mul)
-            
-           if rmin1<0.0: rmin1=0.0
-           if rmin2<0.0: rmin2=0.0
-           if rmax1<rmin1: rmax1=rmin1
-           if rmax2<rmin2: rmax2=rmin2
+           z2 =zplanes[i+1].z* mul
+
+           # def of one face to rotate
+           face = Part.Face(Part.makePolygon( [FreeCAD.Vector(rmin1*cosPhi,rmin1*sinPhi,z1),
+                   FreeCAD.Vector(rmax1*cosPhi,rmax1*sinPhi,z1),
+                   FreeCAD.Vector(rmax2*cosPhi,rmax2*sinPhi,z2),
+                   FreeCAD.Vector(rmin2*cosPhi,rmin2*sinPhi,z2),
+                   FreeCAD.Vector(rmin1*cosPhi,rmin1*sinPhi,z1)]))
+           # rotation of the face
+           listShape[i] = face.revolve(FreeCAD.Vector(0,0,0),FreeCAD.Vector(0,0,1),angleDeltaPhiDeg)
+           del face
+       # compound of all faces
+       fp.Shape = Part.makeCompound(listShape)
+       del listShape[:]
+       del listShape
+       '''
+
+       # loops on each cone
+
+       for i in range(nbreZplanes-1) :
+           FreeCAD.Console.PrintMessage(str(i)+ "   str(listVertexIn)\n")
+           rmin1 = zplanes[i].rmin * mul
+           rmax1 = zplanes[i].rmax * mul
+           z1 =zplanes[i].z* mul
+           #listVertexIn[i]=FreeCAD.Vector(rmin1*cosPhi,rmin1*sinPhi,z1)
+           listVertexIn.append(FreeCAD.Vector(rmin1*cosPhi,rmin1*sinPhi,z1))
+           #listVertexOut[nbreZplanes-i-1]=FreeCAD.Vector(rmax1*cosPhi,rmax1*sinPhi,z1)
+           listVertexOut.append(FreeCAD.Vector(rmax1*cosPhi,rmax1*sinPhi,z1))
+       listVertexOut.reverse()                      
+
+       for indiceTmp in range(len(listVertexOut)):
+           listVertexIn.append(listVertexOut[indiceTmp])
+       listVertexIn = listVertexIn.append(listVertexIn[0])
+       FreeCAD.Console.PrintMessage("str(listVertexIn)\n")
+       for indice in range(len(listVertexIn)):
+         FreeCAD.Console.PrintMessage(str(listVertexIn[indice])+ "\n")
+       FreeCAD.Console.PrintMessage(str(listVertexIn))
+       wire = Part.makePolygon(listVertexIn)
+       face = Part.Face(wire)
+       listShape = face.revolve(FreeCAD.Vector(0,0,0),FreeCAD.Vector(0,0,1),angleDeltaPhiDeg)
+
 
            
-           if rmax1 != rmax2 :
-               cone1 = Part.makeCone(rmax1,rmax2,dh, FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1),  angleDeltaPhiDeg)
-           else :  
-               cone1 = Part.makeCylinder(rmax1,dh, FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1),  angleDeltaPhiDeg)
-
-           if fp.startphi != 0 :
-                cone1.rotate( FreeCAD.Vector(0,0,0), FreeCAD.Vector(0,0,1), getAngleDeg(fp.aunit,fp.startphi))
-
-           if (rmin1 != 0 and rmin2 != 0 ) :
-               if rmin1 != rmin2 :
-                   cone2 = Part.makeCone(rmin1,rmin2,dh)
-               else :
-                   cone2 = Part.makeCylinder(rmin1,dh)
-               listShape[i] = (translate(cone1.cut(cone2),FreeCAD.Vector(0,0,rh-fullhalfheight)))
-           else :
-               listShape[i] = (translate(cone1,FreeCAD.Vector(0,0,rh-fullhalfheight)))
-           rh = rh + dh
-                      
-           del rmin1, rmin2, rmax1, rmax2, dh
-
        fp.Shape = Part.makeCompound(listShape)
-       del fusioncone[:]
-       del fusioncone
+       del listShape[:]
+       del listShape
+       '''
+
+       
 
 class GDMLSphere(GDMLcommon) :
    def __init__(self, obj, rmin, rmax, startphi, deltaphi, starttheta, \
